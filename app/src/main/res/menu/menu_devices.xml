@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
         android:id="@+id/refresh"
-        android:title="Refresh devices" />
-    <item
-        android:id="@+id/baud_rate"
-        android:title="Baud rate" />
-    <item
-        android:id="@+id/read_mode"
-        android:title="Read mode" />
+        android:icon="@drawable/ic_baseline_refresh"
+        android:title="@string/refresh"
+        app:showAsAction="always" />
 </menu>

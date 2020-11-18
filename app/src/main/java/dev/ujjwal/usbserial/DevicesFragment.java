@@ -5,9 +5,11 @@ import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 
-import androidx.appcompat.app.AlertDialog;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.ListFragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -15,70 +17,44 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
 
 import java.util.ArrayList;
-import java.util.Locale;
+
+import dev.ujjwal.usbserial.adapter.DeviceRecyclerViewAdapter;
+import dev.ujjwal.usbserial.model.Device;
 
 
-public class DevicesFragment extends ListFragment {
+public class DevicesFragment extends Fragment {
 
-    class ListItem {
-        UsbDevice device;
-        int port;
-        UsbSerialDriver driver;
+    private final ArrayList<Device> devices = new ArrayList<>();
+    private final int baudRate = 2400;
+    private final boolean withIoManager = true;
 
-        ListItem(UsbDevice device, int port, UsbSerialDriver driver) {
-            this.device = device;
-            this.port = port;
-            this.driver = driver;
-        }
+    private DeviceRecyclerViewAdapter deviceRecyclerViewAdapter;
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.fragment_devices, container, false);
     }
 
-    private ArrayList<ListItem> listItems = new ArrayList<>();
-    private ArrayAdapter<ListItem> listAdapter;
-    private int baudRate = 19200;
-    private boolean withIoManager = true;
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        RecyclerView recyclerView = view.findViewById(R.id.devices_recycler_view);
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext(), RecyclerView.VERTICAL, false));
+        deviceRecyclerViewAdapter = new DeviceRecyclerViewAdapter(this);
+        recyclerView.setAdapter(deviceRecyclerViewAdapter);
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
-        listAdapter = new ArrayAdapter<ListItem>(getActivity(), 0, listItems) {
-            @Override
-            public View getView(int position, View view, ViewGroup parent) {
-                ListItem item = listItems.get(position);
-                if (view == null)
-                    view = getActivity().getLayoutInflater().inflate(R.layout.device_list_item, parent, false);
-                TextView text1 = view.findViewById(R.id.text1);
-                TextView text2 = view.findViewById(R.id.text2);
-                if (item.driver == null)
-                    text1.setText("<no driver>");
-                else if (item.driver.getPorts().size() == 1)
-                    text1.setText(item.driver.getClass().getSimpleName().replace("SerialDriver", ""));
-                else
-                    text1.setText(item.driver.getClass().getSimpleName().replace("SerialDriver", "") + ", Port " + item.port);
-                text2.setText(String.format(Locale.US, "Vendor %04X, Product %04X", item.device.getVendorId(), item.device.getProductId()));
-                return view;
-            }
-        };
-    }
-
-    @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-        setListAdapter(null);
-        View header = getActivity().getLayoutInflater().inflate(R.layout.device_list_header, null, false);
-        getListView().addHeaderView(header, null, false);
-        setEmptyText("<no USB devices found>");
-        ((TextView) getListView().getEmptyView()).setTextSize(18);
-        setListAdapter(listAdapter);
     }
 
     @Override
@@ -87,49 +63,27 @@ public class DevicesFragment extends ListFragment {
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
-        refresh();
-    }
-
-    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         if (id == R.id.refresh) {
             refresh();
-            return true;
-        } else if (id == R.id.baud_rate) {
-            final String[] values = getResources().getStringArray(R.array.baud_rates);
-            int pos = java.util.Arrays.asList(values).indexOf(String.valueOf(baudRate));
-            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-            builder.setTitle("Baud rate");
-            builder.setSingleChoiceItems(values, pos, (dialog, which) -> {
-                baudRate = Integer.parseInt(values[which]);
-                dialog.dismiss();
-            });
-            builder.create().show();
-            return true;
-        } else if (id == R.id.read_mode) {
-            final String[] values = getResources().getStringArray(R.array.read_modes);
-            int pos = withIoManager ? 0 : 1; // read_modes[0]=event/io-manager, read_modes[1]=direct
-            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-            builder.setTitle("Read mode");
-            builder.setSingleChoiceItems(values, pos, (dialog, which) -> {
-                withIoManager = (which == 0);
-                dialog.dismiss();
-            });
-            builder.create().show();
             return true;
         } else {
             return super.onOptionsItemSelected(item);
         }
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        refresh();
+    }
+
     void refresh() {
         UsbManager usbManager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
         UsbSerialProber usbDefaultProber = UsbSerialProber.getDefaultProber();
         UsbSerialProber usbCustomProber = CustomProber.getCustomProber();
-        listItems.clear();
+        devices.clear();
         for (UsbDevice device : usbManager.getDeviceList().values()) {
             UsbSerialDriver driver = usbDefaultProber.probeDevice(device);
             if (driver == null) {
@@ -137,23 +91,21 @@ public class DevicesFragment extends ListFragment {
             }
             if (driver != null) {
                 for (int port = 0; port < driver.getPorts().size(); port++)
-                    listItems.add(new ListItem(device, port, driver));
+                    devices.add(new Device(device, port, driver));
             } else {
-                listItems.add(new ListItem(device, 0, null));
+                devices.add(new Device(device, 0, null));
             }
         }
-        listAdapter.notifyDataSetChanged();
+        deviceRecyclerViewAdapter.updateData(devices);
     }
 
-    @Override
-    public void onListItemClick(ListView l, View v, int position, long id) {
-        ListItem item = listItems.get(position - 1);
-        if (item.driver == null) {
-            Toast.makeText(getActivity(), "no driver", Toast.LENGTH_SHORT).show();
+    public void openDevice(Device device) {
+        if (device.getDriver() == null) {
+            Toast.makeText(getActivity(), "No Driver", Toast.LENGTH_SHORT).show();
         } else {
             Bundle args = new Bundle();
-            args.putInt("device", item.device.getDeviceId());
-            args.putInt("port", item.port);
+            args.putInt("device", device.getDevice().getDeviceId());
+            args.putInt("port", device.getPort());
             args.putInt("baud", baudRate);
             args.putBoolean("withIoManager", withIoManager);
             Fragment fragment = new TerminalFragment();
