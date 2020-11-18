@@ -26,6 +26,7 @@ import java.util.ArrayList;
 
 import dev.ujjwal.usbserial.adapter.DeviceRecyclerViewAdapter;
 import dev.ujjwal.usbserial.model.Device;
+import dev.ujjwal.usbserial.util.CustomProber;
 
 
 public class DevicesFragment extends Fragment {
@@ -35,6 +36,18 @@ public class DevicesFragment extends Fragment {
     private final boolean withIoManager = true;
 
     private DeviceRecyclerViewAdapter deviceRecyclerViewAdapter;
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        refresh();
+    }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -52,12 +65,6 @@ public class DevicesFragment extends Fragment {
     }
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setHasOptionsMenu(true);
-    }
-
-    @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         inflater.inflate(R.menu.menu_devices, menu);
     }
@@ -71,12 +78,6 @@ public class DevicesFragment extends Fragment {
         } else {
             return super.onOptionsItemSelected(item);
         }
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        refresh();
     }
 
     void refresh() {

@@ -1,4 +1,4 @@
-package dev.ujjwal.usbserial;
+package dev.ujjwal.usbserial.util;
 
 import java.security.InvalidParameterException;
 
